@@ -1,0 +1,2 @@
+- Ignore symlinks / hardlinks
+- Read home folder (Downloads, Documents, steam etc...) first

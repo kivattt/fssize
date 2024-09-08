@@ -4,7 +4,6 @@ import (
 	"io/fs"
 	"path/filepath"
 	"slices"
-	"strconv"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -12,17 +11,21 @@ import (
 
 type FSSize struct {
 	*tview.Box
-	files []File
+	app          *tview.Application
+	files        []File
+	accumulating bool
+	//	filesToShow []File //
 }
 
 type File struct {
-	path string
+	path      string
 	sizeBytes int64
 }
 
-func NewFSSize() *FSSize {
+func NewFSSize(app *tview.Application) *FSSize {
 	return &FSSize{
 		Box: tview.NewBox().SetBackgroundColor(tcell.ColorDefault),
+		app: app,
 	}
 }
 
@@ -34,12 +37,29 @@ func (fssize *FSSize) Draw(screen tcell.Screen) {
 			break
 		}
 
-		tview.Print(screen, fssize.files[i].path, 0, i, w, tview.AlignLeft, tcell.ColorDefault)
-		tview.Print(screen, "    " + strconv.FormatInt(fssize.files[i].sizeBytes, 10), 0, i, w, tview.AlignRight, tcell.ColorDefault)
+		styleText := "[:black]"
+		/*		if i % 2 == 1 {
+				styleText = "[:#232323:]"
+			}*/
+
+		//		tview.Print(screen, styleText + fssize.files[i].path, 0, i, w, tview.AlignLeft, tcell.ColorDefault)
+		bruh := int32(max(20, 255-(i*8)))
+		tview.Print(screen, styleText+fssize.files[i].path, 0, i, w, tview.AlignLeft, tcell.NewRGBColor(bruh, bruh, bruh))
+		/*if i % 2 == 1 {
+			for j := len(fssize.files[i].path); j < w; j++ {
+				screen.SetContent(j, i, ' ', nil, tcell.StyleDefault.Background(tcell.NewRGBColor(0x23, 0x23, 0x23)))
+			}
+		}*/
+		tview.Print(screen, styleText+"    "+BytesToHumanReadableUnitString(uint64(fssize.files[i].sizeBytes), 3), 0, i, w, tview.AlignRight, tcell.ColorDefault)
 	}
 
 	for i := x; i < x+w; i++ {
 		screen.SetContent(i, h-1, ' ', nil, tcell.StyleDefault.Background(tcell.ColorBlack))
+	}
+	if fssize.accumulating {
+		tview.Print(screen, "Searching...", 0, h-1, w, tview.AlignLeft, tcell.ColorDefault)
+	} else {
+		tview.Print(screen, "Done", 0, h-1, w, tview.AlignLeft, tcell.NewRGBColor(0, 255, 0))
 	}
 }
 
@@ -55,25 +75,38 @@ func (fssize *FSSize) SortFiles() {
 	})
 }
 
-func (fssize *FSSize) AccumulateFiles() error {
-	return filepath.WalkDir("/", func(path string, d fs.DirEntry, err error) error {
-		if d.IsDir() {
+func (fssize *FSSize) AccumulateFiles(rootFolderPath string) error {
+	fssize.accumulating = true
+	err := filepath.WalkDir(rootFolderPath, func(path string, e fs.DirEntry, err error) error {
+		/*		if e == nil {
+				return nil
+			}*/
+
+		if path == "/proc" {
+			return filepath.SkipDir
+		}
+
+		if !e.Type().IsRegular() {
 			return nil
 		}
 
-		info, infoErr := d.Info()
+		info, infoErr := e.Info()
 		if infoErr != nil {
 			return nil
 		}
+
+		//if info.Mode()
 
 		if len(fssize.files) >= 100 {
 			if info.Size() < fssize.files[len(fssize.files)-1].sizeBytes {
 				return nil
 			}
 
-			fssize.files = fssize.files[:len(fssize.files) - 1]
+			fssize.files = fssize.files[:len(fssize.files)-1]
 			fssize.files = append(fssize.files, File{path: path, sizeBytes: info.Size()})
 			fssize.SortFiles()
+
+			fssize.app.QueueUpdateDraw(func() {})
 			return nil
 		}
 
@@ -82,4 +115,8 @@ func (fssize *FSSize) AccumulateFiles() error {
 
 		return nil
 	})
+
+	fssize.accumulating = false
+	fssize.app.QueueUpdateDraw(func() {})
+	return err
 }

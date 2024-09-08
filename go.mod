@@ -4,6 +4,7 @@ go 1.22.3
 
 require (
 	github.com/gdamore/tcell/v2 v2.7.4
+	github.com/kivattt/getopt v0.0.0-20240907012637-674e0e42e04f
 	github.com/rivo/tview v0.0.0-20240818110301-fd649dbf1223
 )
 

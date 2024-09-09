@@ -17,12 +17,18 @@ import (
 const programName = "fssize"
 const version = "v0.0.1"
 
+func printError(str string) {
+	os.Stderr.WriteString("\x1b[0;31m" + programName + ": " + str + "\x1b[0m\n")
+}
+
 func main() {
 	h := flag.Bool("help", false, "display this help and exit")
 	v := flag.Bool("version", false, "output version information and exit")
 	ignoreHiddenFiles := flag.Bool("ignore-hidden-files", false, "ignore files and folders starting with '.'")
-	maxCount := flag.Int("max-count", 150, "max amount of files to output")
-	output := flag.Bool("output", false, "output to stdout, biggest filesize first, filenames with newlines omitted")
+	maxCount := flag.Int("max-file-count", 150, "max amount of files/folders to output")
+	outputFiles := flag.Bool("output-files", false, "output to stdout, biggest filesize first, filenames with newlines omitted")
+	outputDirs := flag.Bool("output-dirs", false, "output to stdout, biggest sum filesize first, paths with newlines omitted")
+	outputPackages := flag.Bool("output-packages", false, "output to stdout, biggest estimated filesize first")
 
 	getopt.CommandLine.SetOutput(os.Stdout)
 	getopt.CommandLine.Init(programName, flag.ExitOnError)
@@ -30,8 +36,8 @@ func main() {
 		"v", "version",
 		"h", "help",
 		"i", "ignore-hidden-files",
-		"c", "max-count",
-		"o", "output",
+		"c", "max-file-count",
+		"o", "output-files",
 	)
 
 	err := getopt.CommandLine.Parse(os.Args[1:])
@@ -81,16 +87,48 @@ func main() {
 
 	fssize.rootFolderPath = path
 
-	if *output {
-		fssize.AccumulateFiles()
+	btoi := func(b bool) int {
+		if b {
+			return 1
+		}
+		return 0
+	}
+	if btoi(*outputFiles)+btoi(*outputDirs)+btoi(*outputPackages) > 1 {
+		printError("More than one of: --output-files (-o), --output-dirs or --output-packages were set, pick one!")
+		os.Exit(0)
+	}
 
-		for _, e := range fssize.files {
+	if *outputFiles || *outputDirs || *outputPackages {
+		if *outputPackages {
+			fssize.AccumulatePackages()
+		} else {
+			fssize.AccumulateFilesAndFolders()
+		}
+
+		ptr := &fssize.files
+		if *outputDirs {
+			ptr = &fssize.folders
+		} else if *outputPackages {
+			ptr = &fssize.packages
+		}
+
+		for _, e := range *ptr {
 			if strings.ContainsRune(e.path, '\n') {
-				os.Stderr.WriteString("\x1b[0;31m" + programName + ": (stderr) Path omitted for containing a newline: \"" + e.path + "\"\n\x1b[0m")
+				printError("Path omitted for containing a newline: \"" + e.path + "\"")
 			} else {
 				fmt.Println(e.path)
 			}
 		}
+
+		if *outputPackages {
+			printError(`You should not use --output-packages in scripts
+Use dpkg-query directly, something like this:
+
+dpkg-query -Wf '${Installed-Size}\t${Package}\n' | sort -rn
+
+This outputs the estimated kilobyte (KiB) size of all packages`)
+		}
+
 		os.Exit(0)
 	}
 
@@ -102,7 +140,9 @@ func main() {
 		}
 
 		if event.Key() == tcell.KeyTab {
-			fssize.SwitchTab()
+			fssize.TabForward()
+		} else if event.Key() == tcell.KeyBacktab {
+			fssize.TabBackward()
 		}
 
 		return event
@@ -116,7 +156,8 @@ func main() {
 	}()*/
 	fssize.app = app
 
-	go fssize.AccumulateFiles()
+	fssize.AccumulatePackages()
+	go fssize.AccumulateFilesAndFolders()
 
 	if err := app.SetRoot(fssize, true).Run(); err != nil {
 		log.Fatal(err)

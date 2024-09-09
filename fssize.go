@@ -10,14 +10,23 @@ import (
 	"github.com/rivo/tview"
 )
 
+type Tab int
+
+const (
+	Files   Tab = 0
+	Folders     = 1
+)
+
 type FSSize struct {
 	*tview.Box
-	app          *tview.Application
-	files        []File
-	maxCount int
+	app               *tview.Application
+	currentTab        Tab
+	files             []File
+	folders           map[string]int64
+	maxCount          int
 	ignoreHiddenFiles bool
-	accumulating bool
-	rootFolderPath string
+	accumulating      bool
+	rootFolderPath    string
 	//	filesToShow []File //
 }
 
@@ -28,7 +37,16 @@ type File struct {
 
 func NewFSSize() *FSSize {
 	return &FSSize{
-		Box: tview.NewBox().SetBackgroundColor(tcell.ColorBlack),
+		Box:        tview.NewBox().SetBackgroundColor(tcell.ColorBlack),
+		currentTab: Files,
+	}
+}
+
+func (fssize *FSSize) SwitchTab() {
+	if fssize.currentTab == Files {
+		fssize.currentTab = Folders
+	} else {
+		fssize.currentTab = Files
 	}
 }
 
@@ -36,13 +54,26 @@ func (fssize *FSSize) Draw(screen tcell.Screen) {
 	x, _, w, h := fssize.GetInnerRect()
 	fssize.Box.DrawForSubclass(screen, fssize)
 
+	// Top bar
+	/*	for i := x; i < x+w; i++ {
+		screen.SetContent(i, 0, ' ', nil, tcell.StyleDefault.Background(tcell.ColorWhite))
+	}*/
+	filesStyle := ""
+	folderStyle := ""
+	if fssize.currentTab == Files {
+		filesStyle = "[::r]"
+	} else {
+		folderStyle = "[::r]"
+	}
+	tview.Print(screen, filesStyle+" Files [-:-:-:-]"+folderStyle+" Folders [-:-:-:-]", 0, 0, w, tview.AlignLeft, tcell.ColorDefault)
+
 	for i := 0; i < len(fssize.files); i++ {
-		if i >= h-1 { // The bottom row is occupied by the bottom bar
+		if i+1 >= h-1 { // The bottom row is occupied by the bottom bar
 			break
 		}
 
 		styleText := ""
-		if i % 2 == 0 {
+		if i%2 == 0 {
 			styleText = "[:#141414:]"
 		}
 
@@ -57,7 +88,7 @@ func (fssize *FSSize) Draw(screen tcell.Screen) {
 			}
 		}
 
-		_, sizePrintedLength := tview.Print(screen, styleText+"[::b]"+BytesToHumanReadableUnitString(uint64(fssize.files[i].sizeBytes), 3), 0, i, w, tview.AlignRight, tcell.ColorWhite)
+		_, sizePrintedLength := tview.Print(screen, styleText+"[::b]"+BytesToHumanReadableUnitString(uint64(fssize.files[i].sizeBytes), 3), 0, i+1, w, tview.AlignRight, tcell.ColorWhite)
 		// Flawed when FilenameInvisibleCharactersAsCodeHighlighted does anything
 		if len(relPath) > w-sizePrintedLength-1 {
 			relPath = relPath[:max(0, w-sizePrintedLength-1-3)] + "[#606060]..."
@@ -65,17 +96,18 @@ func (fssize *FSSize) Draw(screen tcell.Screen) {
 
 		filenameText := FilenameInvisibleCharactersAsCodeHighlighted(relPath, styleText)
 
-		_, pathPrintedLength := tview.Print(screen, styleText + filenameText, 0, i, w-sizePrintedLength, tview.AlignLeft, tcell.NewRGBColor(200, 200, 200))
+		_, pathPrintedLength := tview.Print(screen, styleText+filenameText, 0, i+1, w-sizePrintedLength, tview.AlignLeft, tcell.NewRGBColor(200, 200, 200))
 		//bruh := int32(max(20, 255-(i*8)))
 		//tview.Print(screen, styleText+fssize.files[i].path, 0, i, w, tview.AlignLeft, tcell.NewRGBColor(bruh, bruh, bruh))
 
-		if i % 2 == 0 {
+		if i%2 == 0 {
 			for j := pathPrintedLength; j < w-sizePrintedLength; j++ {
-				screen.SetContent(j, i, ' ', nil, tcell.StyleDefault.Background(tcell.NewRGBColor(0x14, 0x14, 0x14)))
+				screen.SetContent(j, i+1, ' ', nil, tcell.StyleDefault.Background(tcell.NewRGBColor(0x14, 0x14, 0x14)))
 			}
 		}
 	}
 
+	// Bottom bar
 	for i := x; i < x+w; i++ {
 		screen.SetContent(i, h-1, ' ', nil, tcell.StyleDefault.Background(tcell.ColorWhite))
 	}
@@ -85,7 +117,7 @@ func (fssize *FSSize) Draw(screen tcell.Screen) {
 		tview.Print(screen, "[:#00ff00:] Done ", 0, h-1, w, tview.AlignLeft, tcell.ColorBlack)
 	}
 
-//	tview.Print(screen, "Press 'q' to quit", 0, h-1, w, tview.AlignRight, tcell.ColorWhite)
+	//	tview.Print(screen, "Press 'q' to quit", 0, h-1, w, tview.AlignRight, tcell.ColorWhite)
 	tview.Print(screen, "Press 'q' to quit", 0, h-1, w, tview.AlignRight, tcell.ColorBlack)
 }
 
@@ -114,7 +146,7 @@ func (fssize *FSSize) AccumulateFiles() error {
 			}
 		}
 
-		if path == "/dev" || path == "/proc" || path == "/sys" || path == "/home/.ecryptfs" {
+		if (path == "/dev" || path == "/proc" || path == "/sys" || path == "/home/.ecryptfs") && e.IsDir() {
 			return filepath.SkipDir
 		}
 

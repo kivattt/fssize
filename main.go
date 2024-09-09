@@ -101,6 +101,10 @@ func main() {
 			return nil
 		}
 
+		if event.Key() == tcell.KeyTab {
+			fssize.SwitchTab()
+		}
+
 		return event
 	})
 

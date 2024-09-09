@@ -10,3 +10,5 @@ This is valid:
 
 While this will not ignore hidden files:
 `fssize . --ignore-hidden-files`
+
+Tabs: Files Folders

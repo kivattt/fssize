@@ -60,7 +60,7 @@ func (fssize *FSSize) Draw(screen tcell.Screen) {
 		_, sizePrintedLength := tview.Print(screen, styleText+"[::b]"+BytesToHumanReadableUnitString(uint64(fssize.files[i].sizeBytes), 3), 0, i, w, tview.AlignRight, tcell.ColorWhite)
 		// Flawed when FilenameInvisibleCharactersAsCodeHighlighted does anything
 		if len(relPath) > w-sizePrintedLength-1 {
-			relPath = relPath[:max(0, w-sizePrintedLength-1-3)] + "[yellow]..."
+			relPath = relPath[:max(0, w-sizePrintedLength-1-3)] + "[#606060]..."
 		}
 
 		filenameText := FilenameInvisibleCharactersAsCodeHighlighted(relPath, styleText)

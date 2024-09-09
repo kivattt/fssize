@@ -80,10 +80,9 @@ func (fssize *FSSize) Draw(screen tcell.Screen) {
 		screen.SetContent(i, h-1, ' ', nil, tcell.StyleDefault.Background(tcell.ColorWhite))
 	}
 	if fssize.accumulating {
-//		tview.Print(screen, "Searching...", 0, h-1, w, tview.AlignLeft, tcell.NewRGBColor(200, 200, 200))
-		tview.Print(screen, "Searching...", 0, h-1, w, tview.AlignLeft, tcell.ColorBlack)
+		tview.Print(screen, "[:yellow] Searching... ", 0, h-1, w, tview.AlignLeft, tcell.ColorBlack)
 	} else {
-		tview.Print(screen, "[:#00ff00:]Done", 0, h-1, w, tview.AlignLeft, tcell.ColorBlack)
+		tview.Print(screen, "[:#00ff00:] Done ", 0, h-1, w, tview.AlignLeft, tcell.ColorBlack)
 	}
 
 //	tview.Print(screen, "Press 'q' to quit", 0, h-1, w, tview.AlignRight, tcell.ColorWhite)

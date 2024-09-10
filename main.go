@@ -126,7 +126,7 @@ Use dpkg-query directly, something like this:
 
 dpkg-query -Wf '${Installed-Size}\t${Package}\n' | sort -rn
 
-This outputs the estimated kilobyte (KiB) size of all packages`)
+This outputs the estimated kibibyte (KiB) size of all packages`)
 		}
 
 		os.Exit(0)

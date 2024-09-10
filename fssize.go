@@ -27,7 +27,7 @@ type FSSize struct {
 	currentTab        Tab
 	files             []File
 	folders           []File
-	packages          []File // path = package name, sizeBytes = estimated size in kilobytes
+	packages          []File // path = package name, sizeBytes = estimated size in kibibytes
 	maxCount          int
 	ignoreHiddenFiles bool
 	accumulating      bool
@@ -282,14 +282,14 @@ func (fssize *FSSize) AccumulatePackages() error {
 				panic("unexpected output from dpkg-query, more than 1 comma in output")
 			}
 			packageName := split[1]
-			estimatedKilobytes, err := strconv.Atoi(split[0])
+			estimatedKibibytes, err := strconv.Atoi(split[0])
 			if err != nil {
 				panic("unexpected output from dpkg-query, non-number estimated size")
 			}
 
 			// The ${Installed-Size} format is in estimated KiB
 			// https://git.dpkg.org/git/dpkg/dpkg.git/tree/man/deb-substvars.pod#n176
-			fssize.packages = append(fssize.packages, File{path: packageName, sizeBytes: int64(estimatedKilobytes) * 1024})
+			fssize.packages = append(fssize.packages, File{path: packageName, sizeBytes: int64(estimatedKibibytes) * 1024})
 
 			builder.Reset()
 			continue

@@ -148,12 +148,6 @@ This outputs the estimated kibibyte (KiB) size of all packages`)
 		return event
 	})
 
-	/*	go func() {
-		for {
-			app.QueueUpdateDraw(func() {})
-			time.Sleep(30 * time.Millisecond)
-		}
-	}()*/
 	fssize.app = app
 
 	fssize.AccumulatePackages()

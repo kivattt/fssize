@@ -28,6 +28,7 @@ type FSSize struct {
 	files             []File
 	folders           []File
 	packages          []File // path = package name, sizeBytes = estimated size in kibibytes
+	dpkgQueryWorked   bool
 	maxCount          int
 	ignoreHiddenFiles bool
 	accumulating      bool
@@ -41,8 +42,9 @@ type File struct {
 
 func NewFSSize() *FSSize {
 	return &FSSize{
-		Box:        tview.NewBox().SetBackgroundColor(tcell.NewRGBColor(46, 52, 54)),
-		currentTab: Files,
+		Box:             tview.NewBox().SetBackgroundColor(tcell.NewRGBColor(46, 52, 54)),
+		currentTab:      Files,
+		dpkgQueryWorked: true,
 	}
 }
 
@@ -78,6 +80,7 @@ func (fssize *FSSize) Draw(screen tcell.Screen) {
 	}
 
 	tview.Print(screen, filesStyle+" Files [-:-:-:-]"+folderStyle+" Folders [-:-:-:-]"+packagesStyle+" Packages (dpkg-query) [-:-:-:-]", 0, 0, w, tview.AlignLeft, tcell.ColorDefault)
+	tview.Print(screen, "<- Press Tab or Shift+Tab to switch ", 0, 0, w, tview.AlignRight, tcell.ColorDefault)
 
 	ptr := &fssize.files
 	if fssize.currentTab == Folders {
@@ -86,46 +89,47 @@ func (fssize *FSSize) Draw(screen tcell.Screen) {
 		ptr = &fssize.packages
 	}
 
-	for i := 0; i < len(*ptr); i++ {
-		if i+1 >= h-1 { // The bottom row is occupied by the bottom bar
-			break
-		}
-
-		styleText := ""
-		if i%2 == 0 {
-			styleText = "[:#141414:]"
-		}
-
-		var relPath string
-		if fssize.rootFolderPath == "/" {
-			relPath = (*ptr)[i].path
-		} else {
-			var err error
-			relPath, err = filepath.Rel(fssize.rootFolderPath, (*ptr)[i].path)
-			if err != nil {
-				relPath = (*ptr)[i].path
+	if fssize.currentTab == Packages && len(*ptr) == 0 {
+		tview.Print(screen, "[::b]Failed to run dpkg-query", 0, h/2, w, tview.AlignCenter, tcell.ColorDefault)
+	} else {
+		for i := 0; i < len(*ptr); i++ {
+			if i+1 >= h-1 { // The bottom row is occupied by the bottom bar
+				break
 			}
-		}
 
-		prefix := ""
-		if fssize.currentTab == Packages {
-			prefix = "~"
-		}
-		_, sizePrintedLength := tview.Print(screen, styleText+"[::b]"+prefix+BytesToHumanReadableUnitString(uint64((*ptr)[i].sizeBytes), 3), 0, i+1, w, tview.AlignRight, tcell.ColorWhite)
-		// Flawed when FilenameInvisibleCharactersAsCodeHighlighted does anything
-		if len(relPath) > w-sizePrintedLength-1 {
-			relPath = relPath[:max(0, w-sizePrintedLength-1-3)] + "[#606060]..."
-		}
+			styleText := ""
+			if i%2 == 0 {
+				styleText = "[:#141414:]"
+			}
 
-		filenameText := FilenameInvisibleCharactersAsCodeHighlighted(relPath, styleText)
+			var relPath string
+			if fssize.rootFolderPath == "/" {
+				relPath = (*ptr)[i].path
+			} else {
+				var err error
+				relPath, err = filepath.Rel(fssize.rootFolderPath, (*ptr)[i].path)
+				if err != nil {
+					relPath = (*ptr)[i].path
+				}
+			}
 
-		_, pathPrintedLength := tview.Print(screen, styleText+filenameText, 0, i+1, w-sizePrintedLength, tview.AlignLeft, tcell.NewRGBColor(200, 200, 200))
-		//bruh := int32(max(20, 255-(i*8)))
-		//tview.Print(screen, styleText+(*ptr)[i].path, 0, i, w, tview.AlignLeft, tcell.NewRGBColor(bruh, bruh, bruh))
+			prefix := ""
+			if fssize.currentTab == Packages {
+				prefix = "~"
+			}
+			_, sizePrintedLength := tview.Print(screen, styleText+"[::b]"+prefix+BytesToHumanReadableUnitString(uint64((*ptr)[i].sizeBytes), 3), 0, i+1, w, tview.AlignRight, tcell.ColorWhite)
+			// Flawed when FilenameInvisibleCharactersAsCodeHighlighted does anything
+			if len(relPath) > w-sizePrintedLength-1 {
+				relPath = relPath[:max(0, w-sizePrintedLength-1-3)] + "[#606060]..."
+			}
 
-		if i%2 == 0 {
-			for j := pathPrintedLength; j < w-sizePrintedLength; j++ {
-				screen.SetContent(j, i+1, ' ', nil, tcell.StyleDefault.Background(tcell.NewRGBColor(0x14, 0x14, 0x14)))
+			filenameText := FilenameInvisibleCharactersAsCodeHighlighted(relPath, styleText)
+			_, pathPrintedLength := tview.Print(screen, styleText+filenameText, 0, i+1, w-sizePrintedLength, tview.AlignLeft, tcell.NewRGBColor(200, 200, 200))
+
+			if i%2 == 0 {
+				for j := pathPrintedLength; j < w-sizePrintedLength; j++ {
+					screen.SetContent(j, i+1, ' ', nil, tcell.StyleDefault.Background(tcell.NewRGBColor(0x14, 0x14, 0x14)))
+				}
 			}
 		}
 	}
@@ -145,6 +149,7 @@ func (fssize *FSSize) Draw(screen tcell.Screen) {
 		tview.Print(screen, "[:#00ff00:] Finished ", 0, h-1, w, tview.AlignLeft, tcell.ColorBlack)
 	}
 
+	tview.Print(screen, programName+" "+version, 0, h-1, w, tview.AlignCenter, tcell.ColorBlack)
 	tview.Print(screen, "Press 'q' to quit ", 0, h-1, w, tview.AlignRight, tcell.ColorBlack)
 }
 
@@ -271,6 +276,7 @@ func (fssize *FSSize) AccumulatePackages() error {
 	// According to the man page, --showformat has a short option '-f' since dpkg 1.13.1, so let's use the long option
 	output, err := exec.Command("dpkg-query", "--show", "--showformat=${Installed-Size},${Package}\n").Output()
 	if err != nil {
+		fssize.dpkgQueryWorked = false
 		return err
 	}
 

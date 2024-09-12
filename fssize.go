@@ -217,9 +217,9 @@ func (fssize *FSSize) walkDir(path string, d fs.DirEntry, walkDirFn fs.WalkDirFu
 			fssize.folders = append(fssize.folders, File{path: path, sizeBytes: dirSize})
 			fssize.SortFiles(&fssize.folders)
 
-			if fssize.app != nil && fssize.currentTab == Folders {
+			/*if fssize.app != nil && fssize.currentTab == Folders {
 				fssize.app.QueueUpdateDraw(func() {})
-			}
+			}*/
 		}
 	} else {
 		fssize.folders = append(fssize.folders, File{path: path, sizeBytes: dirSize})
@@ -344,9 +344,9 @@ func (fssize *FSSize) AccumulateFilesAndFolders() error {
 			fssize.files = append(fssize.files, File{path: path, sizeBytes: info.Size()})
 			fssize.SortFiles(&fssize.files)
 
-			if fssize.app != nil && fssize.currentTab == Files {
+			/*if fssize.app != nil && fssize.currentTab == Files {
 				fssize.app.QueueUpdateDraw(func() {})
-			}
+			}*/
 			return nil
 		}
 

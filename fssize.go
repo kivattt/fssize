@@ -283,10 +283,24 @@ func (fssize *FSSize) AccumulatePackages() error {
 	var builder strings.Builder
 	for _, c := range output {
 		if c == '\n' {
-			split := strings.Split(builder.String(), ",")
-			if len(split) != 2 {
-				panic("unexpected output from dpkg-query, more than 1 comma in output")
+			str := builder.String()
+			if len(str) == 0 {
+				panic("unexpected output from dpkg-query, empty line")
 			}
+
+			// dpkg-query can output nothing as the size sometimes, like here with surge-xt:
+			// 2508,sudo
+			// ,surge-xt
+			// 91,switcheroo-control
+			if str[0] == ',' {
+				continue
+			}
+
+			split := strings.Split(str, ",")
+			if len(split) != 2 {
+				panic("unexpected output from dpkg-query, failed to split line by comma in output")
+			}
+
 			packageName := split[1]
 			estimatedKibibytes, err := strconv.Atoi(split[0])
 			if err != nil {

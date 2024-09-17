@@ -16,7 +16,7 @@ import (
 )
 
 const programName = "fssize"
-const version = "v0.0.2"
+const version = "v0.0.3"
 
 func printError(str string) {
 	os.Stderr.WriteString("\x1b[0;31m" + programName + ": " + str + "\x1b[0m\n")

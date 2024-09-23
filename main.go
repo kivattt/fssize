@@ -16,7 +16,7 @@ import (
 )
 
 const programName = "fssize"
-const version = "v0.0.3"
+const version = "v0.0.4"
 
 func printError(str string) {
 	os.Stderr.WriteString("\x1b[0;31m" + programName + ": " + str + "\x1b[0m\n")
@@ -158,7 +158,9 @@ This outputs the estimated kibibyte (KiB) size of all packages`)
 	go func() {
 		for fssize.accumulating {
 			time.Sleep(250 * time.Millisecond)
-			app.QueueUpdateDraw(func() {})
+			if fssize.currentTab != Packages {
+				app.QueueUpdateDraw(func() {})
+			}
 		}
 	}()
 

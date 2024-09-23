@@ -10,3 +10,6 @@ This is valid:\
 
 While this will not ignore hidden files:\
 `fssize . --ignore-hidden-files`
+
+# Known issues
+Selecting an area with the mouse (atleast in xterm) can hang the application until it is unselected or a key is pressed
